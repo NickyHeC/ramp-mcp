@@ -38,15 +38,21 @@ A Micro-Capability Platform (MCP) server for integrating with the Ramp API. This
 
 ### Setting Up Credentials
 
-1. Open the `credentials.txt` file in the project root directory.
+1. Create a `credentials.txt` file in the project root directory (this file is not included in the repository for security reasons).
 
-2. Replace the placeholder values with your own credentials:
+2. Add your Ramp API credentials in the following format:
    ```
+   # Ramp API Credentials
+   # Please replace the values below with your own RAMP_ID and RAMP_SEC
+   # You can find these in your Ramp developer dashboard
+
    RAMP_ID=your_ramp_id_here
    RAMP_SEC=your_ramp_secret_here
    ```
 
-3. **Important**: Never commit `credentials.txt` to version control. This file should remain local and secure.
+3. Replace `your_ramp_id_here` and `your_ramp_secret_here` with your actual credentials from your Ramp developer dashboard.
+
+4. **Important**: Never commit `credentials.txt` to version control. This file is already included in `.gitignore` and should remain local and secure.
 
 ## Available Tools
 
@@ -139,9 +145,11 @@ Make sure your Ramp API credentials have the necessary scopes enabled in your Ra
 
 ### Credentials Not Found
 If you see an error about missing credentials:
-- Ensure `credentials.txt` exists in the project root
-- Verify the file contains `RAMP_ID=` and `RAMP_SEC=` lines
+- Create `credentials.txt` in the project root directory if it doesn't exist
+- Ensure the file follows the format shown in the Configuration section above
+- Verify the file contains `RAMP_ID=` and `RAMP_SEC=` lines with your actual credentials
 - Check that there are no extra spaces or quotes around the values
+- Make sure the file is in the project root directory (same level as `pyproject.toml`)
 
 ### Authentication Errors
 If you encounter authentication errors:
