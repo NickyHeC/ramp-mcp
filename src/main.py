@@ -3,7 +3,7 @@ import asyncio
 
 from dedalus_mcp import MCPServer
 
-from tools import ramp_tools
+from .tools import ramp_tools
 
 
 # --- Server ---
