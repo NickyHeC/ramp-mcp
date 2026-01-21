@@ -12,6 +12,7 @@ dist/
 *.egg-info/
 
 # Credentials - DO NOT COMMIT
+.env
 credentials.txt
 
 # IDE

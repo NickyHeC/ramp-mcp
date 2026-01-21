@@ -8,36 +8,21 @@ from typing import Optional, List, Dict, Any
 
 
 def get_credentials() -> tuple[str, str]:
-    """Get Ramp API credentials from credentials.txt file."""
-    # Look for credentials.txt in the project root
+    """Get Ramp API credentials from .env file."""
+    from dotenv import load_dotenv
+    
+    # Load environment variables from .env file in project root
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    credentials_file = os.path.join(project_root, "credentials.txt")
+    env_file = os.path.join(project_root, ".env")
+    load_dotenv(env_file)
     
-    if not os.path.exists(credentials_file):
-        raise FileNotFoundError(
-            f"Credentials file '{credentials_file}' not found. "
-            "Please create it with your RAMP_ID and RAMP_SEC."
-        )
-    
-    ramp_id = None
-    ramp_sec = None
-    
-    with open(credentials_file, 'r') as f:
-        for line in f:
-            line = line.strip()
-            # Skip comments and empty lines
-            if not line or line.startswith('#'):
-                continue
-            
-            if line.startswith('RAMP_ID='):
-                ramp_id = line.split('=', 1)[1].strip()
-            elif line.startswith('RAMP_SEC='):
-                ramp_sec = line.split('=', 1)[1].strip()
+    ramp_id = os.getenv("RAMP_ID")
+    ramp_sec = os.getenv("RAMP_SEC")
     
     if not ramp_id or not ramp_sec:
         raise ValueError(
-            f"Missing credentials in '{credentials_file}'. "
-            "Please ensure RAMP_ID and RAMP_SEC are set."
+            "Missing credentials in .env file. "
+            "Please ensure RAMP_ID and RAMP_SEC are set in your .env file."
         )
     
     return ramp_id, ramp_sec

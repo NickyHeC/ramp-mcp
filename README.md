@@ -38,21 +38,20 @@ A Micro-Capability Platform (MCP) server for integrating with the Ramp API. This
 
 ### Setting Up Credentials
 
-1. Create a `credentials.txt` file in the project root directory (this file is not included in the repository for security reasons).
-
-2. Add your Ramp API credentials in the following format:
+1. Copy the `.env.example` file to `.env`:
+   ```bash
+   cp .env.example .env
    ```
-   # Ramp API Credentials
-   # Please replace the values below with your own RAMP_ID and RAMP_SEC
-   # You can find these in your Ramp developer dashboard
 
+2. Open the `.env` file and add your Ramp API credentials:
+   ```
    RAMP_ID=your_ramp_id_here
    RAMP_SEC=your_ramp_secret_here
    ```
 
 3. Replace `your_ramp_id_here` and `your_ramp_secret_here` with your actual credentials from your Ramp developer dashboard.
 
-4. **Important**: Never commit `credentials.txt` to version control. This file is already included in `.gitignore` and should remain local and secure.
+4. **Important**: Never commit `.env` to version control. This file is already included in `.gitignore` and should remain local and secure.
 
 ## Available Tools
 
@@ -116,7 +115,8 @@ ramp-mcp/
 │   ├── __init__.py
 │   ├── main.py          # MCP server entry point
 │   └── tools.py         # Ramp API tool implementations
-├── credentials.txt       # Your Ramp API credentials (not committed)
+├── .env                  # Your Ramp API credentials (not committed)
+├── .env.example          # Template for .env file
 ├── get_token.py         # Utility script for token management
 ├── test_transactions.py # Test script for transactions
 ├── pyproject.toml       # Project configuration and dependencies
@@ -136,7 +136,7 @@ Make sure your Ramp API credentials have the necessary scopes enabled in your Ra
 
 ## Security Notes
 
-- **Never commit `credentials.txt`** to version control
+- **Never commit `.env`** to version control
 - Keep your API credentials secure and private
 - Rotate your credentials if they are ever compromised
 - Use environment variables or secure credential management in production environments
@@ -145,15 +145,15 @@ Make sure your Ramp API credentials have the necessary scopes enabled in your Ra
 
 ### Credentials Not Found
 If you see an error about missing credentials:
-- Create `credentials.txt` in the project root directory if it doesn't exist
-- Ensure the file follows the format shown in the Configuration section above
+- Copy `.env.example` to `.env` in the project root directory if it doesn't exist
+- Ensure the `.env` file follows the format shown in the Configuration section above
 - Verify the file contains `RAMP_ID=` and `RAMP_SEC=` lines with your actual credentials
 - Check that there are no extra spaces or quotes around the values
-- Make sure the file is in the project root directory (same level as `pyproject.toml`)
+- Make sure the `.env` file is in the project root directory (same level as `pyproject.toml`)
 
 ### Authentication Errors
 If you encounter authentication errors:
-- Verify your credentials are correct in `credentials.txt`
+- Verify your credentials are correct in `.env`
 - Ensure your Ramp API credentials are active in your developer dashboard
 - Check that the required scopes are enabled for your API credentials
 
