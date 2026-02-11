@@ -6,7 +6,7 @@ A Micro-Capability Platform (MCP) server for integrating with the Ramp API. This
 
 - Python 3.10 or higher
 - A Ramp account with API access
-- Ramp API credentials (RAMP_ID and RAMP_SEC)
+- Ramp API Bearer token (RAMP_TOKEN) passed via **Dedalus Auth (DAuth)** when connecting to the server
 
 ## Installation
 
@@ -28,40 +28,23 @@ A Micro-Capability Platform (MCP) server for integrating with the Ramp API. This
 
 ## Configuration
 
-### Getting Your Ramp API Credentials
+### Authentication (DAuth)
 
-1. Visit the [Ramp API Getting Started Guide](https://docs.ramp.com/developer-api/v1/getting-started) to learn how to obtain your API credentials.
+The server is configured to receive **the Ramp Bearer token (RAMP_TOKEN) via Dedalus Auth**. When a client connects, it provides this secret through DAuth; the server uses it to call the Ramp API on behalf of that client. The token is not read from the server environment or `.env` for tool execution when DAuth is used.
 
-2. In your Ramp developer dashboard, you'll find:
-   - **RAMP_ID**: Your Ramp API client ID
-   - **RAMP_SEC**: Your Ramp API client secret
+- **RAMP_TOKEN**: Your Ramp API Bearer token (passed by the client via DAuth)
 
-### Setting Up Credentials
-
-1. Copy the `.env.example` file to `.env`:
-   ```bash
-   cp .env.example .env
-   ```
-
-2. Open the `.env` file and add your Ramp API credentials:
-   ```
-   RAMP_ID=your_ramp_id_here
-   RAMP_SEC=your_ramp_secret_here
-   ```
-
-3. Replace `your_ramp_id_here` and `your_ramp_secret_here` with your actual credentials from your Ramp developer dashboard.
-
-4. **Important**: Never commit `.env` to version control. This file is already included in `.gitignore` and should remain local and secure.
+Optional: You can keep a `.env` file (e.g. from `.env.example`) for local reference or for use by the client; do not commit `.env` to version control.
 
 ## Available Tools
 
 The MCP server provides the following tools:
 
 ### `read_transaction`
-Read transactions from your Ramp account.
+Read transactions from your Ramp account. Requires scope: `transactions:read`.
 
 - **Parameters**:
-  - `number_of_transactions` (optional, int): Number of transactions to retrieve (default: 5)
+  - `limit` (optional, int): Number of transactions to retrieve
   - `start` (optional, str): Transaction ID to start pagination from
 
 ### `read_merchant`
@@ -99,13 +82,12 @@ The server will start on port 8080 by default. You can connect to it using an MC
 
 ## Testing
 
-Test the transaction reading functionality:
+Tools run in the MCP request context and require the Ramp token from the client via DAuth. To test:
 
-```bash
-python test_transactions.py
-```
+1. Start the server: `python src/main.py`
+2. Connect with an MCP client that sends the Ramp token (RAMP_TOKEN) through DAuth, then call tools (e.g. `read_transaction` with `limit` and optional `start`).
 
-This will fetch and display the most recent transactions in a readable text format.
+The script `test_transactions.py` is a standalone formatter example; it does not run the tools without a full MCP/DAuth context.
 
 ## Project Structure
 
@@ -115,10 +97,9 @@ ramp-mcp/
 │   ├── __init__.py
 │   ├── main.py          # MCP server entry point
 │   └── tools.py         # Ramp API tool implementations
-├── .env                  # Your Ramp API credentials (not committed)
-├── .env.example          # Template for .env file
-├── get_token.py         # Utility script for token management
-├── test_transactions.py # Test script for transactions
+├── .env                  # Optional local / client credential reference (not committed)
+├── .env.example          # Template for .env (DAuth client credentials)
+├── test_transactions.py  # Example formatter (tools require MCP/DAuth context)
 ├── pyproject.toml       # Project configuration and dependencies
 └── README.md            # This file
 ```
@@ -143,19 +124,14 @@ Make sure your Ramp API credentials have the necessary scopes enabled in your Ra
 
 ## Troubleshooting
 
-### Credentials Not Found
-If you see an error about missing credentials:
-- Copy `.env.example` to `.env` in the project root directory if it doesn't exist
-- Ensure the `.env` file follows the format shown in the Configuration section above
-- Verify the file contains `RAMP_ID=` and `RAMP_SEC=` lines with your actual credentials
-- Check that there are no extra spaces or quotes around the values
-- Make sure the `.env` file is in the project root directory (same level as `pyproject.toml`)
+### Credentials / DAuth
+- Credentials are provided by the **client** via Dedalus Auth when connecting to the server.
+- Ensure your MCP client is configured to send RAMP_TOKEN through DAuth for the Ramp connection.
+- Verify required scopes are enabled for your Ramp API credentials in the Ramp developer dashboard.
 
 ### Authentication Errors
-If you encounter authentication errors:
-- Verify your credentials are correct in `.env`
-- Ensure your Ramp API credentials are active in your developer dashboard
-- Check that the required scopes are enabled for your API credentials
+- Confirm the client is sending a valid Ramp token (RAMP_TOKEN) through DAuth.
+- Check that the required scopes are enabled for your API credentials in the Ramp developer dashboard.
 
 ### Import Errors
 If you see import errors for `dedalus_mcp`, `pydantic`, or `httpx`:

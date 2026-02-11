@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Test script to read transactions from Ramp API."""
+"""Example formatter for Ramp transactions.
+
+Note: read_transaction and other tools require the MCP server context and
+the Ramp token via DAuth. Run the server (python src/main.py) and call tools
+from an MCP client that sends RAMP_TOKEN through DAuth. This script
+shows how to format transaction data; it cannot call read_transaction
+standalone without a request context.
+"""
 import sys
 import os
 from datetime import datetime
@@ -71,7 +78,8 @@ def format_transaction(txn):
 
 if __name__ == "__main__":
     try:
-        result = read_transaction(number_of_transactions=6)
+        # Requires MCP request context (DAuth); will fail without it.
+        result = read_transaction(limit=6)
         
         print(f"\nFound {len(result.data)} transactions:\n")
         
