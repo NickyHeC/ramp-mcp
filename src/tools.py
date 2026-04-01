@@ -1,624 +1,513 @@
-# tools.py - Ramp API tools
-#
-# The Ramp Bearer token (RAMP_TOKEN) is provided via DAuth or server env and
-# used directly for all API calls.
-import os
+"""Ramp API tools.
+
+Tools make authenticated requests to the Ramp API using ctx.dispatch().
+DAuth applies the credential inside the enclave — tool code never handles
+raw secrets.
+"""
+
+from typing import Any
 from urllib.parse import urlencode
-import httpx
-from dedalus_mcp import tool, Context
+
+from dedalus_mcp import tool, get_context, HttpMethod, HttpRequest
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
 
-# Optional: load .env for local/dev when token is passed via env
-try:
-    from dotenv import load_dotenv
-    _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    load_dotenv(os.path.join(_project_root, ".env"))
-except Exception:
-    pass
-
-RAMP_BASE_URL = "https://api.ramp.com/developer/v1"
+from src.main import ramp_connection
 
 
-async def _get_ramp_token(ctx: Context) -> str:
-    """Get RAMP_TOKEN from context (resolve_client) or env. Use in tools."""
-    try:
-        resolver = ctx.resolver
-        if resolver is not None:
-            auth = ctx.auth_context
-            if auth and getattr(auth, "claims", None):
-                connections = (auth.claims or {}).get("ddls:connections") or {}
-                if isinstance(connections, dict) and connections:
-                    handle = next(iter(connections.values()))
-                    client = await ctx.resolve_client(handle)
-                    if isinstance(client, str):
-                        return client
-                    if hasattr(client, "token"):
-                        return getattr(client, "token")
-    except Exception:
-        pass
-    token = os.getenv("RAMP_TOKEN")
-    if not token:
-        raise ValueError(
-            "Ramp token not available. Set RAMP_TOKEN in the environment, "
-            "or connect via DAuth so the server can obtain it from the connection."
-        )
-    return token
+class RampResult(BaseModel):
+    success: bool
+    data: list[dict[str, Any]] = []
+    page: dict[str, Any] | None = None
+    error: str | None = None
 
 
-def _path_with_params(base_path: str, params: dict) -> str:
-    if not params:
-        return base_path
-    return f"{base_path}?{urlencode(params)}"
+async def api_request(path: str, params: dict | None = None) -> dict:
+    """Dispatch an authenticated GET request to the Ramp API through DAuth.
 
+    Args:
+        path: API path appended to the connection's base_url (e.g. "/transactions").
+        params: Optional query parameters.
 
-async def _ramp_get(ctx: Context, path: str, params: dict) -> dict:
-    """Get RAMP_TOKEN and GET from Ramp API with Bearer auth."""
-    token = await _get_ramp_token(ctx)
-    full_path = _path_with_params(path, params)
-    resp = httpx.get(
-        f"{RAMP_BASE_URL}{full_path}",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-    resp.raise_for_status()
-    result = resp.json()
-    if isinstance(result, dict):
-        return result
-    raise RuntimeError(f"Unexpected response type: {type(result)}")
-
-
-class TransactionResult(BaseModel):
-    data: List[Dict[str, Any]]
-    page: Optional[Dict[str, Any]] = None
+    """
+    ctx = get_context()
+    if params:
+        path = f"{path}?{urlencode(params)}"
+    req = HttpRequest(method=HttpMethod.GET, path=path)
+    resp = await ctx.dispatch(ramp_connection, req)
+    if resp.success and resp.response is not None:
+        body = resp.response.body
+        if isinstance(body, dict):
+            data = body.get("data")
+            if data is None:
+                data = [body]
+            return {"success": True, "data": data, "page": body.get("page")}
+        return {"success": True, "data": [body] if not isinstance(body, list) else body}
+    error = resp.error.message if resp.error else "Request failed"
+    return {"success": False, "error": error}
 
 
 @tool(description="Read transactions from Ramp API", required_scopes=["transactions:read"])
 async def read_transaction(
-    ctx: Context,
-    limit: Optional[int] = None,
-    start: Optional[str] = None
-) -> TransactionResult:
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
     params = {}
     if limit:
         params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/transactions", params)
-    return TransactionResult(**result)
-
-
-class MerchantResult(BaseModel):
-    data: List[Dict[str, Any]]
-    page: Optional[Dict[str, Any]] = None
+    result = await api_request("/transactions", params)
+    return RampResult(**result)
 
 
 @tool(description="Read merchants from Ramp API", required_scopes=["merchants:read"])
 async def read_merchant(
-    ctx: Context,
-    merchant_name: Optional[str] = None,
-    limit: Optional[int] = None,
-    start: Optional[str] = None
-) -> MerchantResult:
+    merchant_name: str | None = None,
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
     params = {}
     if limit:
         params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/merchants", params)
-    # Filter by merchant_name if provided
+    result = await api_request("/merchants", params)
     if merchant_name and result.get("data"):
-        filtered_data = [
-            merchant for merchant in result["data"]
-            if merchant_name.lower() in merchant.get("name", "").lower()
+        result["data"] = [
+            m for m in result["data"]
+            if merchant_name.lower() in m.get("name", "").lower()
         ]
-        result["data"] = filtered_data
-    return MerchantResult(**result)
-
-
-class ReimbursementResult(BaseModel):
-    data: List[Dict[str, Any]]
-    page: Optional[Dict[str, Any]] = None
+    return RampResult(**result)
 
 
 @tool(description="Read reimbursements from Ramp API", required_scopes=["reimbursements:read"])
 async def read_reimbursement(
-    ctx: Context,
-    limit: Optional[int] = None,
-    start: Optional[str] = None
-) -> ReimbursementResult:
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
     params = {}
     if limit:
         params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/reimbursements", params)
-    return ReimbursementResult(**result)
-
-
-class UserResult(BaseModel):
-    data: List[Dict[str, Any]]
-    page: Optional[Dict[str, Any]] = None
+    result = await api_request("/reimbursements", params)
+    return RampResult(**result)
 
 
 @tool(description="Read users from Ramp API", required_scopes=["users:read"])
 async def read_user(
-    ctx: Context,
-    user_name: Optional[str] = None,
-    limit: Optional[int] = None,
-    start: Optional[str] = None
-) -> UserResult:
+    user_name: str | None = None,
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
     params = {}
     if limit:
         params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/users", params)
-    # Filter by user_name if provided
+    result = await api_request("/users", params)
     if user_name and result.get("data"):
-        filtered_data = [
-            user for user in result["data"]
-            if user_name.lower() in user.get("full_name", "").lower()
-            or user_name.lower() in f"{user.get('first_name', '')} {user.get('last_name', '')}".lower()
+        result["data"] = [
+            u for u in result["data"]
+            if user_name.lower() in u.get("full_name", "").lower()
+            or user_name.lower() in f"{u.get('first_name', '')} {u.get('last_name', '')}".lower()
         ]
-        result["data"] = filtered_data
-    return UserResult(**result)
+    return RampResult(**result)
 
 
-# Generic result model for most endpoints
-class GenericResult(BaseModel):
-    data: List[Dict[str, Any]]
-    page: Optional[Dict[str, Any]] = None
-
-
-# Cards
 @tool(description="Read cards from Ramp API", required_scopes=["cards:read"])
 async def read_card(
-    ctx: Context,
-    number_of_cards: Optional[int] = 10,
-    start: Optional[str] = None
-) -> GenericResult:
-    params = {"limit": number_of_cards}
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
+    params = {}
+    if limit:
+        params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/cards", params)
-    if result.get("data") and number_of_cards:
-        result["data"] = result["data"][:number_of_cards]
-    return GenericResult(**result)
+    result = await api_request("/cards", params)
+    return RampResult(**result)
 
 
-# Bills
 @tool(description="Read bills from Ramp API", required_scopes=["bills:read"])
 async def read_bill(
-    ctx: Context,
-    number_of_bills: Optional[int] = 10,
-    start: Optional[str] = None
-) -> GenericResult:
-    params = {"limit": number_of_bills}
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
+    params = {}
+    if limit:
+        params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/bills", params)
-    if result.get("data") and number_of_bills:
-        result["data"] = result["data"][:number_of_bills]
-    return GenericResult(**result)
+    result = await api_request("/bills", params)
+    return RampResult(**result)
 
 
-# Receipts
 @tool(description="Read receipts from Ramp API", required_scopes=["receipts:read"])
 async def read_receipt(
-    ctx: Context,
-    number_of_receipts: Optional[int] = 10,
-    start: Optional[str] = None
-) -> GenericResult:
-    params = {"limit": number_of_receipts}
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
+    params = {}
+    if limit:
+        params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/receipts", params)
-    if result.get("data") and number_of_receipts:
-        result["data"] = result["data"][:number_of_receipts]
-    return GenericResult(**result)
+    result = await api_request("/receipts", params)
+    return RampResult(**result)
 
 
-# Limits
 @tool(description="Read spending limits from Ramp API", required_scopes=["limits:read"])
 async def read_limit(
-    ctx: Context,
-    limit: Optional[int] = None,
-    start: Optional[str] = None
-) -> GenericResult:
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
     params = {}
     if limit:
         params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/limits", params)
-    return GenericResult(**result)
+    result = await api_request("/limits", params)
+    return RampResult(**result)
 
 
-# Vendors
 @tool(description="Read vendors from Ramp API", required_scopes=["vendors:read"])
 async def read_vendor(
-    ctx: Context,
-    vendor_name: Optional[str] = None,
-    limit: Optional[int] = None,
-    start: Optional[str] = None
-) -> GenericResult:
+    vendor_name: str | None = None,
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
     params = {}
     if limit:
         params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/vendors", params)
+    result = await api_request("/vendors", params)
     if vendor_name and result.get("data"):
-        filtered_data = [
-            vendor for vendor in result["data"]
-            if vendor_name.lower() in vendor.get("name", "").lower()
+        result["data"] = [
+            v for v in result["data"]
+            if vendor_name.lower() in v.get("name", "").lower()
         ]
-        result["data"] = filtered_data
-    return GenericResult(**result)
+    return RampResult(**result)
 
 
-# Departments
 @tool(description="Read departments from Ramp API", required_scopes=["departments:read"])
 async def read_department(
-    ctx: Context,
-    limit: Optional[int] = None,
-    start: Optional[str] = None
-) -> GenericResult:
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
     params = {}
     if limit:
         params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/departments", params)
-    return GenericResult(**result)
+    result = await api_request("/departments", params)
+    return RampResult(**result)
 
 
-# Locations
 @tool(description="Read locations from Ramp API", required_scopes=["locations:read"])
 async def read_location(
-    ctx: Context,
-    limit: Optional[int] = None,
-    start: Optional[str] = None
-) -> GenericResult:
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
     params = {}
     if limit:
         params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/locations", params)
-    return GenericResult(**result)
+    result = await api_request("/locations", params)
+    return RampResult(**result)
 
 
-# Cashbacks
 @tool(description="Read cashbacks from Ramp API", required_scopes=["cashbacks:read"])
 async def read_cashback(
-    ctx: Context,
-    number_of_cashbacks: Optional[int] = 10,
-    start: Optional[str] = None
-) -> GenericResult:
-    params = {"limit": number_of_cashbacks}
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
+    params = {}
+    if limit:
+        params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/cashbacks", params)
-    if result.get("data") and number_of_cashbacks:
-        result["data"] = result["data"][:number_of_cashbacks]
-    return GenericResult(**result)
+    result = await api_request("/cashbacks", params)
+    return RampResult(**result)
 
 
-# Statements
 @tool(description="Read statements from Ramp API", required_scopes=["statements:read"])
 async def read_statement(
-    ctx: Context,
-    number_of_statements: Optional[int] = 10,
-    start: Optional[str] = None
-) -> GenericResult:
-    params = {"limit": number_of_statements}
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
+    params = {}
+    if limit:
+        params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/statements", params)
-    if result.get("data") and number_of_statements:
-        result["data"] = result["data"][:number_of_statements]
-    return GenericResult(**result)
+    result = await api_request("/statements", params)
+    return RampResult(**result)
 
 
-# Transfers
 @tool(description="Read transfers from Ramp API", required_scopes=["transfers:read"])
 async def read_transfer(
-    ctx: Context,
-    number_of_transfers: Optional[int] = 10,
-    start: Optional[str] = None
-) -> GenericResult:
-    params = {"limit": number_of_transfers}
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
+    params = {}
+    if limit:
+        params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/transfers", params)
-    if result.get("data") and number_of_transfers:
-        result["data"] = result["data"][:number_of_transfers]
-    return GenericResult(**result)
+    result = await api_request("/transfers", params)
+    return RampResult(**result)
 
 
-# Business
 @tool(description="Read business information from Ramp API", required_scopes=["business:read"])
-async def read_business(ctx: Context) -> GenericResult:
-    result = await _ramp_get(ctx, "/business", {})
-    if isinstance(result, dict) and "data" not in result:
-        result = {"data": [result]}
-    return GenericResult(**result)
+async def read_business() -> RampResult:
+    result = await api_request("/business")
+    return RampResult(**result)
 
 
-# Repayments
 @tool(description="Read repayments from Ramp API", required_scopes=["repayments:read"])
 async def read_repayment(
-    ctx: Context,
-    number_of_repayments: Optional[int] = 10,
-    start: Optional[str] = None
-) -> GenericResult:
-    params = {"limit": number_of_repayments}
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
+    params = {}
+    if limit:
+        params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/repayments", params)
-    if result.get("data") and number_of_repayments:
-        result["data"] = result["data"][:number_of_repayments]
-    return GenericResult(**result)
+    result = await api_request("/repayments", params)
+    return RampResult(**result)
 
 
-# Spend Programs
 @tool(description="Read spend programs from Ramp API", required_scopes=["spend_programs:read"])
 async def read_spend_program(
-    ctx: Context,
-    limit: Optional[int] = None,
-    start: Optional[str] = None
-) -> GenericResult:
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
     params = {}
     if limit:
         params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/spend_programs", params)
-    return GenericResult(**result)
+    result = await api_request("/spend_programs", params)
+    return RampResult(**result)
 
 
-# Treasury
 @tool(description="Read treasury information from Ramp API", required_scopes=["treasury:read"])
 async def read_treasury(
-    ctx: Context,
-    limit: Optional[int] = None,
-    start: Optional[str] = None
-) -> GenericResult:
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
     params = {}
     if limit:
         params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/treasury", params)
-    return GenericResult(**result)
+    result = await api_request("/treasury", params)
+    return RampResult(**result)
 
 
-# Trips
 @tool(description="Read trips from Ramp API", required_scopes=["trips:read"])
 async def read_trip(
-    ctx: Context,
-    number_of_trips: Optional[int] = 10,
-    start: Optional[str] = None
-) -> GenericResult:
-    params = {"limit": number_of_trips}
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
+    params = {}
+    if limit:
+        params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/trips", params)
-    if result.get("data") and number_of_trips:
-        result["data"] = result["data"][:number_of_trips]
-    return GenericResult(**result)
+    result = await api_request("/trips", params)
+    return RampResult(**result)
 
 
-# Accounting
 @tool(description="Read accounting information from Ramp API", required_scopes=["accounting:read"])
 async def read_accounting(
-    ctx: Context,
-    limit: Optional[int] = None,
-    start: Optional[str] = None
-) -> GenericResult:
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
     params = {}
     if limit:
         params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/accounting", params)
-    return GenericResult(**result)
+    result = await api_request("/accounting", params)
+    return RampResult(**result)
 
 
-# Bank Accounts
 @tool(description="Read bank accounts from Ramp API", required_scopes=["bank_accounts:read"])
 async def read_bank_account(
-    ctx: Context,
-    limit: Optional[int] = None,
-    start: Optional[str] = None
-) -> GenericResult:
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
     params = {}
     if limit:
         params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/bank_accounts", params)
-    return GenericResult(**result)
+    result = await api_request("/bank_accounts", params)
+    return RampResult(**result)
 
 
-# Bank Feeds
 @tool(description="Read bank feeds from Ramp API", required_scopes=["bank_feeds:read"])
 async def read_bank_feed(
-    ctx: Context,
-    limit: Optional[int] = None,
-    start: Optional[str] = None
-) -> GenericResult:
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
     params = {}
     if limit:
         params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/bank_feeds", params)
-    return GenericResult(**result)
+    result = await api_request("/bank_feeds", params)
+    return RampResult(**result)
 
 
-# Memos
 @tool(description="Read memos from Ramp API", required_scopes=["memos:read"])
 async def read_memo(
-    ctx: Context,
-    number_of_memos: Optional[int] = 10,
-    start: Optional[str] = None
-) -> GenericResult:
-    params = {"limit": number_of_memos}
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
+    params = {}
+    if limit:
+        params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/memos", params)
-    if result.get("data") and number_of_memos:
-        result["data"] = result["data"][:number_of_memos]
-    return GenericResult(**result)
+    result = await api_request("/memos", params)
+    return RampResult(**result)
 
 
-# Purchase Orders
 @tool(description="Read purchase orders from Ramp API", required_scopes=["purchase_orders:read"])
 async def read_purchase_order(
-    ctx: Context,
-    number_of_orders: Optional[int] = 10,
-    start: Optional[str] = None
-) -> GenericResult:
-    params = {"limit": number_of_orders}
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
+    params = {}
+    if limit:
+        params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/purchase_orders", params)
-    if result.get("data") and number_of_orders:
-        result["data"] = result["data"][:number_of_orders]
-    return GenericResult(**result)
+    result = await api_request("/purchase_orders", params)
+    return RampResult(**result)
 
 
-# Receipt Integrations
 @tool(description="Read receipt integrations from Ramp API", required_scopes=["receipt_integrations:read"])
 async def read_receipt_integration(
-    ctx: Context,
-    limit: Optional[int] = None,
-    start: Optional[str] = None
-) -> GenericResult:
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
     params = {}
     if limit:
         params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/receipt_integrations", params)
-    return GenericResult(**result)
+    result = await api_request("/receipt_integrations", params)
+    return RampResult(**result)
 
 
-# Item Receipts
 @tool(description="Read item receipts from Ramp API", required_scopes=["item_receipts:read"])
 async def read_item_receipt(
-    ctx: Context,
-    number_of_receipts: Optional[int] = 10,
-    start: Optional[str] = None
-) -> GenericResult:
-    params = {"limit": number_of_receipts}
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
+    params = {}
+    if limit:
+        params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/item_receipts", params)
-    if result.get("data") and number_of_receipts:
-        result["data"] = result["data"][:number_of_receipts]
-    return GenericResult(**result)
+    result = await api_request("/item_receipts", params)
+    return RampResult(**result)
 
 
-# Entities
 @tool(description="Read entities from Ramp API", required_scopes=["entities:read"])
 async def read_entity(
-    ctx: Context,
-    limit: Optional[int] = None,
-    start: Optional[str] = None
-) -> GenericResult:
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
     params = {}
     if limit:
         params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/entities", params)
-    return GenericResult(**result)
+    result = await api_request("/entities", params)
+    return RampResult(**result)
 
 
-# External Attendees
 @tool(description="Read external attendees from Ramp API", required_scopes=["external_attendees:read"])
 async def read_external_attendee(
-    ctx: Context,
-    limit: Optional[int] = None,
-    start: Optional[str] = None
-) -> GenericResult:
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
     params = {}
     if limit:
         params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/external_attendees", params)
-    return GenericResult(**result)
+    result = await api_request("/external_attendees", params)
+    return RampResult(**result)
 
 
-# Leads
 @tool(description="Read leads from Ramp API", required_scopes=["leads:read"])
 async def read_lead(
-    ctx: Context,
-    limit: Optional[int] = None,
-    start: Optional[str] = None
-) -> GenericResult:
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
     params = {}
     if limit:
         params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/leads", params)
-    return GenericResult(**result)
+    result = await api_request("/leads", params)
+    return RampResult(**result)
 
 
-# Attendee Types
 @tool(description="Read attendee types from Ramp API", required_scopes=["attendee_types:read"])
 async def read_attendee_type(
-    ctx: Context,
-    limit: Optional[int] = None,
-    start: Optional[str] = None
-) -> GenericResult:
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
     params = {}
     if limit:
         params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/attendee_types", params)
-    return GenericResult(**result)
+    result = await api_request("/attendee_types", params)
+    return RampResult(**result)
 
 
-# Audit Logs
 @tool(description="Read audit logs from Ramp API", required_scopes=["audit_logs:read"])
 async def read_audit_log(
-    ctx: Context,
-    number_of_logs: Optional[int] = 50,
-    start: Optional[str] = None
-) -> GenericResult:
-    params = {"limit": number_of_logs}
-    if start:
-        params["start"] = start
-    result = await _ramp_get(ctx, "/audit_logs", params)
-    if result.get("data") and number_of_logs:
-        result["data"] = result["data"][:number_of_logs]
-    return GenericResult(**result)
-
-
-# Custom Records
-@tool(description="Read custom records from Ramp API", required_scopes=["custom_records:read"])
-async def read_custom_record(
-    ctx: Context,
-    limit: Optional[int] = None,
-    start: Optional[str] = None
-) -> GenericResult:
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
     params = {}
     if limit:
         params["limit"] = limit
     if start:
         params["start"] = start
-    result = await _ramp_get(ctx, "/custom_records", params)
-    return GenericResult(**result)
+    result = await api_request("/audit_logs", params)
+    return RampResult(**result)
 
 
-ramp_tools = [
+@tool(description="Read custom records from Ramp API", required_scopes=["custom_records:read"])
+async def read_custom_record(
+    limit: int | None = None,
+    start: str | None = None,
+) -> RampResult:
+    params = {}
+    if limit:
+        params["limit"] = limit
+    if start:
+        params["start"] = start
+    result = await api_request("/custom_records", params)
+    return RampResult(**result)
+
+
+# --- Tool Registry ---
+
+tools = [
     read_transaction,
     read_merchant,
     read_reimbursement,

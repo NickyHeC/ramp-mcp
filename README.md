@@ -1,12 +1,12 @@
 # Ramp MCP Server
 
-A Micro-Capability Platform (MCP) server for integrating with the Ramp API. This server provides tools to read transactions, merchants, reimbursements, and users from your Ramp account.
+A MCP server for integrating with the Ramp API, built with the [dedalus_mcp](https://docs.dedaluslabs.ai/dmcp) framework. Authentication is handled by **DAuth** (Dedalus Auth) — the server never sees raw API credentials.
 
 ## Prerequisites
 
 - Python 3.10 or higher
 - A Ramp account with API access
-- Ramp API Bearer token (RAMP_TOKEN) passed via **Dedalus Auth (DAuth)** when connecting to the server
+- Ramp API Bearer token (`RAMP_TOKEN`) passed via DAuth when connecting to the server
 
 ## Installation
 
@@ -20,7 +20,7 @@ A Micro-Capability Platform (MCP) server for integrating with the Ramp API. This
    ```bash
    pip install -e .
    ```
-   
+
    Or if using `uv`:
    ```bash
    uv pip install -e .
@@ -28,66 +28,91 @@ A Micro-Capability Platform (MCP) server for integrating with the Ramp API. This
 
 ## Configuration
 
+### Environment Variables
+
+Copy the example and fill in your values:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Description |
+|----------|-------------|
+| `DEDALUS_AS_URL` | Dedalus authorization server URL (default: `https://as.dedaluslabs.ai`) |
+| `DEDALUS_API_KEY` | Your Dedalus platform API key |
+| `DEDALUS_API_URL` | Dedalus API URL (default: `https://api.dedaluslabs.ai`) |
+| `RAMP_TOKEN` | Your Ramp API Bearer token (passed by the client via DAuth) |
+
 ### Authentication (DAuth)
 
-The server is configured to receive **the Ramp Bearer token (RAMP_TOKEN) via Dedalus Auth**. When a client connects, it provides this secret through DAuth; the server uses it to call the Ramp API on behalf of that client. The token is not read from the server environment or `.env` for tool execution when DAuth is used.
-
-- **RAMP_TOKEN**: Your Ramp API Bearer token (passed by the client via DAuth)
-
-Optional: You can keep a `.env` file (e.g. from `.env.example`) for local reference or for use by the client; do not commit `.env` to version control.
+The server receives the Ramp Bearer token (`RAMP_TOKEN`) via Dedalus Auth. When a client connects, it provides this secret through DAuth; the server uses `ctx.dispatch()` to route all API calls through the DAuth enclave. The token is never exposed to server code.
 
 ## Available Tools
 
-The MCP server provides the following tools:
+All tools make authenticated requests through DAuth. Each tool accepts optional `limit` and `start` parameters for pagination.
 
-### `read_transaction`
-Read transactions from your Ramp account. Requires scope: `transactions:read`.
+### Core Tools
 
-- **Parameters**:
-  - `limit` (optional, int): Number of transactions to retrieve
-  - `start` (optional, str): Transaction ID to start pagination from
+| Tool | Description | Scope |
+|------|-------------|-------|
+| `read_transaction` | Read transactions | `transactions:read` |
+| `read_merchant` | Read merchants (filterable by `merchant_name`) | `merchants:read` |
+| `read_reimbursement` | Read reimbursements | `reimbursements:read` |
+| `read_user` | Read users (filterable by `user_name`) | `users:read` |
+| `read_card` | Read cards | `cards:read` |
+| `read_bill` | Read bills | `bills:read` |
+| `read_receipt` | Read receipts | `receipts:read` |
+| `read_limit` | Read spending limits | `limits:read` |
+| `read_vendor` | Read vendors (filterable by `vendor_name`) | `vendors:read` |
+| `read_department` | Read departments | `departments:read` |
+| `read_location` | Read locations | `locations:read` |
 
-### `read_merchant`
-Read merchant information filtered by merchant name.
+### Financial Tools
 
-- **Parameters**:
-  - `merchant_name` (required, str): Name of the merchant to search for
-  - `limit` (optional, int): Maximum number of results to return
-  - `start` (optional, str): Merchant ID to start pagination from
+| Tool | Description | Scope |
+|------|-------------|-------|
+| `read_cashback` | Read cashbacks | `cashbacks:read` |
+| `read_statement` | Read statements | `statements:read` |
+| `read_transfer` | Read transfers | `transfers:read` |
+| `read_business` | Read business information | `business:read` |
+| `read_repayment` | Read repayments | `repayments:read` |
+| `read_treasury` | Read treasury information | `treasury:read` |
 
-### `read_reimbursement`
-Read reimbursements from your Ramp account.
+### Administrative Tools
 
-- **Parameters**:
-  - `number_of_reimbursements` (optional, int): Number of reimbursements to retrieve (default: 5)
-  - `start` (optional, str): Reimbursement ID to start pagination from
-
-### `read_user`
-Read user information filtered by user name.
-
-- **Parameters**:
-  - `user_name` (required, str): Name of the user to search for
-  - `limit` (optional, int): Maximum number of results to return
-  - `start` (optional, str): User ID to start pagination from
+| Tool | Description | Scope |
+|------|-------------|-------|
+| `read_spend_program` | Read spend programs | `spend_programs:read` |
+| `read_trip` | Read trips | `trips:read` |
+| `read_accounting` | Read accounting information | `accounting:read` |
+| `read_bank_account` | Read bank accounts | `bank_accounts:read` |
+| `read_bank_feed` | Read bank feeds | `bank_feeds:read` |
+| `read_memo` | Read memos | `memos:read` |
+| `read_purchase_order` | Read purchase orders | `purchase_orders:read` |
+| `read_receipt_integration` | Read receipt integrations | `receipt_integrations:read` |
+| `read_item_receipt` | Read item receipts | `item_receipts:read` |
+| `read_entity` | Read entities | `entities:read` |
+| `read_external_attendee` | Read external attendees | `external_attendees:read` |
+| `read_lead` | Read leads | `leads:read` |
+| `read_attendee_type` | Read attendee types | `attendee_types:read` |
+| `read_audit_log` | Read audit logs | `audit_logs:read` |
+| `read_custom_record` | Read custom records | `custom_records:read` |
 
 ## Running the Server
 
 Start the MCP server:
 
 ```bash
-python src/main.py
+python -m src.main
 ```
 
-The server will start on port 8080 by default. You can connect to it using an MCP client.
+The server starts on port 8080. Verify with the test client:
 
-## Testing
+```bash
+python -m src.client
+```
 
-Tools run in the MCP request context and require the Ramp token from the client via DAuth. To test:
-
-1. Start the server: `python src/main.py`
-2. Connect with an MCP client that sends the Ramp token (RAMP_TOKEN) through DAuth, then call tools (e.g. `read_transaction` with `limit` and optional `start`).
-
-The script `test_transactions.py` is a standalone formatter example; it does not run the tools without a full MCP/DAuth context.
+Update `src/client.py` to call your tools by name with the correct arguments.
 
 ## Project Structure
 
@@ -95,54 +120,28 @@ The script `test_transactions.py` is a standalone formatter example; it does not
 ramp-mcp/
 ├── src/
 │   ├── __init__.py
-│   ├── main.py          # MCP server entry point
-│   └── tools.py         # Ramp API tool implementations
-├── .env                  # Optional local / client credential reference (not committed)
-├── .env.example          # Template for .env (DAuth client credentials)
-├── test_transactions.py  # Example formatter (tools require MCP/DAuth context)
+│   ├── main.py          # MCP server entry point and DAuth connection
+│   ├── tools.py         # Ramp API tool implementations
+│   └── client.py        # Test client for verifying tools
+├── .env.example         # Environment variable template
 ├── pyproject.toml       # Project configuration and dependencies
-└── README.md            # This file
+├── LICENSE
+└── README.md
 ```
-
-## API Scopes
-
-The following OAuth scopes are used by the tools:
-
-- `transactions:read` - For reading transactions
-- `merchants:read` - For reading merchant information
-- `reimbursements:read` - For reading reimbursements
-- `users:read` - For reading user information
-
-Make sure your Ramp API credentials have the necessary scopes enabled in your Ramp developer dashboard.
 
 ## Security Notes
 
 - **Never commit `.env`** to version control
-- Keep your API credentials secure and private
+- All API calls go through the DAuth enclave — your server code never touches raw credentials
 - Rotate your credentials if they are ever compromised
-- Use environment variables or secure credential management in production environments
-
-## Troubleshooting
-
-### Credentials / DAuth
-- Credentials are provided by the **client** via Dedalus Auth when connecting to the server.
-- Ensure your MCP client is configured to send RAMP_TOKEN through DAuth for the Ramp connection.
-- Verify required scopes are enabled for your Ramp API credentials in the Ramp developer dashboard.
-
-### Authentication Errors
-- Confirm the client is sending a valid Ramp token (RAMP_TOKEN) through DAuth.
-- Check that the required scopes are enabled for your API credentials in the Ramp developer dashboard.
-
-### Import Errors
-If you see import errors for `dedalus_mcp`, `pydantic`, or `httpx`:
-- Run `pip install -e .` to install all dependencies
-- Ensure you're using Python 3.10 or higher
 
 ## Additional Resources
 
 - [Ramp API Documentation](https://docs.ramp.com/developer-api/v1/getting-started)
 - [Ramp API OpenAPI Spec](https://docs.ramp.com/openapi/developer-api.json)
 - [Ramp API Plain Text Docs](https://docs.ramp.com/llms.txt)
+- [Dedalus MCP docs](https://docs.dedaluslabs.ai/dmcp)
+- [DAuth launch blog post](https://www.dedaluslabs.ai/blog/dedalus-auth-launch)
 
 ## License
 

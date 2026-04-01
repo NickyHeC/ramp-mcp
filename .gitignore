@@ -15,10 +15,6 @@ dist/
 .env
 credentials.txt
 
-# Test scripts
-test_nicky_transactions.py
-test_departments.py
-
 # IDE
 .vscode/
 .idea/
