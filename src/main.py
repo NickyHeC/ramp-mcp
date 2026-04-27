@@ -10,7 +10,7 @@ from dedalus_mcp.auth import Connection, SecretKeys
 load_dotenv()
 
 ramp_connection = Connection(
-    name="ramp",
+    name="ramp-mcp",
     secrets=SecretKeys(token="RAMP_TOKEN"),
     base_url="https://api.ramp.com/developer/v1",
     auth_header_format="Bearer {api_key}",
