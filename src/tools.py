@@ -46,7 +46,7 @@ async def api_request(path: str, params: dict | None = None) -> dict:
     return {"success": False, "error": error}
 
 
-@tool(description="Read transactions from Ramp API", required_scopes=["transactions:read"])
+@tool(description="Read transactions from Ramp API")
 async def read_transaction(
     limit: int | None = None,
     start: str | None = None,
@@ -60,7 +60,7 @@ async def read_transaction(
     return RampResult(**result)
 
 
-@tool(description="Read merchants from Ramp API", required_scopes=["merchants:read"])
+@tool(description="Read merchants from Ramp API")
 async def read_merchant(
     merchant_name: str | None = None,
     limit: int | None = None,
@@ -80,7 +80,7 @@ async def read_merchant(
     return RampResult(**result)
 
 
-@tool(description="Read reimbursements from Ramp API", required_scopes=["reimbursements:read"])
+@tool(description="Read reimbursements from Ramp API")
 async def read_reimbursement(
     limit: int | None = None,
     start: str | None = None,
@@ -94,7 +94,7 @@ async def read_reimbursement(
     return RampResult(**result)
 
 
-@tool(description="Read users from Ramp API", required_scopes=["users:read"])
+@tool(description="Read users from Ramp API")
 async def read_user(
     user_name: str | None = None,
     limit: int | None = None,
@@ -115,7 +115,7 @@ async def read_user(
     return RampResult(**result)
 
 
-@tool(description="Read cards from Ramp API", required_scopes=["cards:read"])
+@tool(description="Read cards from Ramp API")
 async def read_card(
     limit: int | None = None,
     start: str | None = None,
@@ -129,7 +129,7 @@ async def read_card(
     return RampResult(**result)
 
 
-@tool(description="Read bills from Ramp API", required_scopes=["bills:read"])
+@tool(description="Read bills from Ramp API")
 async def read_bill(
     limit: int | None = None,
     start: str | None = None,
@@ -143,7 +143,7 @@ async def read_bill(
     return RampResult(**result)
 
 
-@tool(description="Read receipts from Ramp API", required_scopes=["receipts:read"])
+@tool(description="Read receipts from Ramp API")
 async def read_receipt(
     limit: int | None = None,
     start: str | None = None,
@@ -157,7 +157,7 @@ async def read_receipt(
     return RampResult(**result)
 
 
-@tool(description="Read spending limits from Ramp API", required_scopes=["limits:read"])
+@tool(description="Read spending limits from Ramp API")
 async def read_limit(
     limit: int | None = None,
     start: str | None = None,
@@ -171,7 +171,7 @@ async def read_limit(
     return RampResult(**result)
 
 
-@tool(description="Read vendors from Ramp API", required_scopes=["vendors:read"])
+@tool(description="Read vendors from Ramp API")
 async def read_vendor(
     vendor_name: str | None = None,
     limit: int | None = None,
@@ -191,7 +191,7 @@ async def read_vendor(
     return RampResult(**result)
 
 
-@tool(description="Read departments from Ramp API", required_scopes=["departments:read"])
+@tool(description="Read departments from Ramp API")
 async def read_department(
     limit: int | None = None,
     start: str | None = None,
@@ -205,7 +205,7 @@ async def read_department(
     return RampResult(**result)
 
 
-@tool(description="Read locations from Ramp API", required_scopes=["locations:read"])
+@tool(description="Read locations from Ramp API")
 async def read_location(
     limit: int | None = None,
     start: str | None = None,
@@ -219,7 +219,7 @@ async def read_location(
     return RampResult(**result)
 
 
-@tool(description="Read cashbacks from Ramp API", required_scopes=["cashbacks:read"])
+@tool(description="Read cashbacks from Ramp API")
 async def read_cashback(
     limit: int | None = None,
     start: str | None = None,
@@ -233,7 +233,7 @@ async def read_cashback(
     return RampResult(**result)
 
 
-@tool(description="Read statements from Ramp API", required_scopes=["statements:read"])
+@tool(description="Read statements from Ramp API")
 async def read_statement(
     limit: int | None = None,
     start: str | None = None,
@@ -247,7 +247,7 @@ async def read_statement(
     return RampResult(**result)
 
 
-@tool(description="Read transfers from Ramp API", required_scopes=["transfers:read"])
+@tool(description="Read transfers from Ramp API")
 async def read_transfer(
     limit: int | None = None,
     start: str | None = None,
@@ -261,13 +261,13 @@ async def read_transfer(
     return RampResult(**result)
 
 
-@tool(description="Read business information from Ramp API", required_scopes=["business:read"])
+@tool(description="Read business information from Ramp API")
 async def read_business() -> RampResult:
     result = await api_request("/business")
     return RampResult(**result)
 
 
-@tool(description="Read repayments from Ramp API", required_scopes=["repayments:read"])
+@tool(description="Read repayments from Ramp API")
 async def read_repayment(
     limit: int | None = None,
     start: str | None = None,
@@ -281,7 +281,7 @@ async def read_repayment(
     return RampResult(**result)
 
 
-@tool(description="Read spend programs from Ramp API", required_scopes=["spend_programs:read"])
+@tool(description="Read spend programs from Ramp API")
 async def read_spend_program(
     limit: int | None = None,
     start: str | None = None,
@@ -295,7 +295,7 @@ async def read_spend_program(
     return RampResult(**result)
 
 
-@tool(description="Read treasury information from Ramp API", required_scopes=["treasury:read"])
+@tool(description="Read treasury information from Ramp API")
 async def read_treasury(
     limit: int | None = None,
     start: str | None = None,
@@ -309,7 +309,7 @@ async def read_treasury(
     return RampResult(**result)
 
 
-@tool(description="Read trips from Ramp API", required_scopes=["trips:read"])
+@tool(description="Read trips from Ramp API")
 async def read_trip(
     limit: int | None = None,
     start: str | None = None,
@@ -323,7 +323,7 @@ async def read_trip(
     return RampResult(**result)
 
 
-@tool(description="Read accounting information from Ramp API", required_scopes=["accounting:read"])
+@tool(description="Read accounting information from Ramp API")
 async def read_accounting(
     limit: int | None = None,
     start: str | None = None,
@@ -337,7 +337,7 @@ async def read_accounting(
     return RampResult(**result)
 
 
-@tool(description="Read bank accounts from Ramp API", required_scopes=["bank_accounts:read"])
+@tool(description="Read bank accounts from Ramp API")
 async def read_bank_account(
     limit: int | None = None,
     start: str | None = None,
@@ -351,7 +351,7 @@ async def read_bank_account(
     return RampResult(**result)
 
 
-@tool(description="Read bank feeds from Ramp API", required_scopes=["bank_feeds:read"])
+@tool(description="Read bank feeds from Ramp API")
 async def read_bank_feed(
     limit: int | None = None,
     start: str | None = None,
@@ -365,7 +365,7 @@ async def read_bank_feed(
     return RampResult(**result)
 
 
-@tool(description="Read memos from Ramp API", required_scopes=["memos:read"])
+@tool(description="Read memos from Ramp API")
 async def read_memo(
     limit: int | None = None,
     start: str | None = None,
@@ -379,7 +379,7 @@ async def read_memo(
     return RampResult(**result)
 
 
-@tool(description="Read purchase orders from Ramp API", required_scopes=["purchase_orders:read"])
+@tool(description="Read purchase orders from Ramp API")
 async def read_purchase_order(
     limit: int | None = None,
     start: str | None = None,
@@ -393,7 +393,7 @@ async def read_purchase_order(
     return RampResult(**result)
 
 
-@tool(description="Read receipt integrations from Ramp API", required_scopes=["receipt_integrations:read"])
+@tool(description="Read receipt integrations from Ramp API")
 async def read_receipt_integration(
     limit: int | None = None,
     start: str | None = None,
@@ -407,7 +407,7 @@ async def read_receipt_integration(
     return RampResult(**result)
 
 
-@tool(description="Read item receipts from Ramp API", required_scopes=["item_receipts:read"])
+@tool(description="Read item receipts from Ramp API")
 async def read_item_receipt(
     limit: int | None = None,
     start: str | None = None,
@@ -421,7 +421,7 @@ async def read_item_receipt(
     return RampResult(**result)
 
 
-@tool(description="Read entities from Ramp API", required_scopes=["entities:read"])
+@tool(description="Read entities from Ramp API")
 async def read_entity(
     limit: int | None = None,
     start: str | None = None,
@@ -435,7 +435,7 @@ async def read_entity(
     return RampResult(**result)
 
 
-@tool(description="Read external attendees from Ramp API", required_scopes=["external_attendees:read"])
+@tool(description="Read external attendees from Ramp API")
 async def read_external_attendee(
     limit: int | None = None,
     start: str | None = None,
@@ -449,7 +449,7 @@ async def read_external_attendee(
     return RampResult(**result)
 
 
-@tool(description="Read leads from Ramp API", required_scopes=["leads:read"])
+@tool(description="Read leads from Ramp API")
 async def read_lead(
     limit: int | None = None,
     start: str | None = None,
@@ -463,7 +463,7 @@ async def read_lead(
     return RampResult(**result)
 
 
-@tool(description="Read attendee types from Ramp API", required_scopes=["attendee_types:read"])
+@tool(description="Read attendee types from Ramp API")
 async def read_attendee_type(
     limit: int | None = None,
     start: str | None = None,
@@ -477,7 +477,7 @@ async def read_attendee_type(
     return RampResult(**result)
 
 
-@tool(description="Read audit logs from Ramp API", required_scopes=["audit_logs:read"])
+@tool(description="Read audit logs from Ramp API")
 async def read_audit_log(
     limit: int | None = None,
     start: str | None = None,
@@ -491,7 +491,7 @@ async def read_audit_log(
     return RampResult(**result)
 
 
-@tool(description="Read custom records from Ramp API", required_scopes=["custom_records:read"])
+@tool(description="Read custom records from Ramp API")
 async def read_custom_record(
     limit: int | None = None,
     start: str | None = None,
