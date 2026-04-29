@@ -60,9 +60,10 @@ async def read_transaction(
     return RampResult(**result)
 
 
-@tool(description="Read merchants from Ramp API")
+@tool(description="Read merchants from Ramp API. Filter by merchant_name (substring match) or sk_category_name (exact match, e.g. 'SaaS / Software').")
 async def read_merchant(
     merchant_name: str | None = None,
+    sk_category_name: str | None = None,
     limit: int | None = None,
     start: str | None = None,
 ) -> RampResult:
@@ -72,11 +73,19 @@ async def read_merchant(
     if start:
         params["start"] = start
     result = await api_request("/merchants", params)
-    if merchant_name and result.get("data"):
-        result["data"] = [
-            m for m in result["data"]
-            if merchant_name.lower() in m.get("name", "").lower()
-        ]
+    if result.get("data"):
+        filtered = result["data"]
+        if merchant_name:
+            filtered = [
+                m for m in filtered
+                if merchant_name.lower() in m.get("merchant_name", "").lower()
+            ]
+        if sk_category_name:
+            filtered = [
+                m for m in filtered
+                if m.get("sk_category_name", "").lower() == sk_category_name.lower()
+            ]
+        result["data"] = filtered
     return RampResult(**result)
 
 
